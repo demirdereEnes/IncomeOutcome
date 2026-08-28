@@ -1,11 +1,11 @@
 {
-    "name": "income_outcome",
-    "short_name": "income_outcome",
+    "name": "Finansal Durum",
+    "short_name": "Finansal Durum",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Income & Outcome tracker",
+    "background_color": "#14A79D",
+    "theme_color": "#14A79D",
+    "description": "Gelir, gider ve birikim takibi",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -27,7 +27,7 @@ class IncomeOutcomeApp extends ConsumerWidget {
     ref.watch(appBootstrapProvider);
 
     return MaterialApp(
-      title: 'Birikim',
+      title: 'Finansal Durum',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       locale: const Locale('tr', 'TR'),
