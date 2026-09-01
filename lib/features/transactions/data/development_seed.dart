@@ -1,12 +1,13 @@
 import '../../../shared/models/currency.dart';
+import '../../../shared/models/debt_operation.dart';
 import '../../../shared/models/transaction_type.dart';
 import '../../rates/domain/exchange_rates.dart';
 import '../domain/transaction.dart';
 import 'transaction_repository.dart';
 
-/// Fills an empty database with a realistic history so the dashboard, chart
-/// and movement list can be exercised. Debug builds only - never called in
-/// release, and never overwrites data the user already has.
+/// Fills an empty database with a realistic history so the dashboard, charts,
+/// filters and debt tracking can be exercised. Debug builds only - never
+/// called in release, and never written over data the user already has.
 Future<void> seedDevelopmentDataIfEmpty(TransactionRepository repository) async {
   if (await repository.count() > 0) return;
 
@@ -26,12 +27,14 @@ NewTransaction _toNewTransaction(_Seed seed, DateTime midnight) {
     currency: seed.currency,
     amountMinor: (seed.amount * 100).round(),
     categoryId: seed.categoryId,
+    subcategoryId: seed.subcategoryId,
+    debtOperation: seed.debtOperation,
     transactionDate: date,
     description: seed.description,
     rates: ExchangeRates(
-      usdTry: 48.2538 - seed.daysAgo * 0.035,
-      eurTry: 55.9646 - seed.daysAgo * 0.042,
-      xauTry: 6908.74 - seed.daysAgo * 7.6,
+      usdTry: 48.2613 - seed.daysAgo * 0.032,
+      eurTry: 55.9825 - seed.daysAgo * 0.038,
+      xauTry: 6855.63 - seed.daysAgo * 7.4,
       fetchedAt: date.add(const Duration(hours: 9, minutes: 30)),
       source: 'seed',
     ),
@@ -39,27 +42,37 @@ NewTransaction _toNewTransaction(_Seed seed, DateTime midnight) {
 }
 
 const _seeds = <_Seed>[
-  _Seed(40, TransactionType.income, 1, Currency.tryLira, 125000, 'Temmuz maaşı'),
-  _Seed(39, TransactionType.expense, 7, Currency.tryLira, 2450, null),
-  _Seed(38, TransactionType.expense, 9, Currency.tryLira, 1250, null),
-  _Seed(35, TransactionType.expense, 8, Currency.tryLira, 950, 'Elektrik faturası'),
-  _Seed(33, TransactionType.income, 2, Currency.usd, 1200, 'Landing page projesi'),
-  _Seed(30, TransactionType.expense, 14, Currency.tryLira, 5000, null),
-  _Seed(28, TransactionType.saving, 16, Currency.xau, 5, 'Gram altın alımı'),
-  _Seed(27, TransactionType.expense, 10, Currency.tryLira, 1850, null),
-  _Seed(24, TransactionType.expense, 7, Currency.tryLira, 3120, null),
-  _Seed(20, TransactionType.expense, 13, Currency.tryLira, 900, null),
-  _Seed(18, TransactionType.income, 5, Currency.tryLira, 18000, 'Daire kirası'),
-  _Seed(16, TransactionType.saving, 17, Currency.usd, 500, 'Dolar birikimi'),
-  _Seed(15, TransactionType.expense, 11, Currency.tryLira, 2400, null),
-  _Seed(12, TransactionType.expense, 8, Currency.tryLira, 1340, 'Doğalgaz'),
-  _Seed(10, TransactionType.income, 1, Currency.tryLira, 128500, 'Ağustos maaşı'),
-  _Seed(8, TransactionType.expense, 7, Currency.tryLira, 2780, null),
-  _Seed(6, TransactionType.saving, 18, Currency.eur, 300, 'Euro mevduat'),
-  _Seed(5, TransactionType.expense, 12, Currency.tryLira, 1600, 'Okul kırtasiye'),
-  _Seed(3, TransactionType.income, 3, Currency.tryLira, 12000, 'Çeyrek primi'),
-  _Seed(2, TransactionType.expense, 9, Currency.usd, 60, 'Benzin'),
-  _Seed(1, TransactionType.saving, 16, Currency.xau, 2.5, null),
+  _Seed(45, TransactionType.income, 100, null, Currency.tryLira, 125000, 'Temmuz maaşı'),
+  _Seed(44, TransactionType.expense, 110, 11000, Currency.tryLira, 20000, 'Kira'),
+  _Seed(43, TransactionType.expense, 113, 11300, Currency.tryLira, 4200, null),
+  _Seed(41, TransactionType.expense, 112, 11200, Currency.tryLira, 3500, 'Benzin'),
+  _Seed(40, TransactionType.expense, 111, 11100, Currency.tryLira, 950, 'Elektrik'),
+  _Seed(38, TransactionType.expense, 111, 11103, Currency.tryLira, 600, 'İnternet'),
+  _Seed(37, TransactionType.expense, 115, 11500, Currency.tryLira, 500, 'Netflix'),
+  _Seed(35, TransactionType.saving, 130, null, Currency.xau, 5, 'Gram altın'),
+  _Seed(33, TransactionType.expense, 113, 11301, Currency.tryLira, 1850, null),
+  _Seed(30, TransactionType.income, 102, null, Currency.usd, 1200, 'Freelance proje'),
+  _Seed(28, TransactionType.expense, 116, 11601, Currency.tryLira, 8400, 'Kulaklık'),
+  _Seed(25, TransactionType.expense, 112, 11205, Currency.tryLira, 2300, 'MTV'),
+  _Seed(22, TransactionType.expense, 114, 11400, Currency.tryLira, 3100, 'Okul'),
+  _Seed(20, TransactionType.saving, 133, null, Currency.tryLira, 100000, 'Nakit birikim'),
+  _Seed(
+    18,
+    TransactionType.expense,
+    118,
+    11802,
+    Currency.xau,
+    105,
+    'Altın borcu',
+    debtOperation: DebtOperation.add,
+  ),
+  _Seed(15, TransactionType.expense, 113, 11300, Currency.tryLira, 5800, null),
+  _Seed(12, TransactionType.expense, 117, 11703, Currency.tryLira, 6500, 'Hafta sonu'),
+  _Seed(10, TransactionType.income, 100, null, Currency.tryLira, 128500, 'Ağustos maaşı'),
+  _Seed(8, TransactionType.expense, 110, 11001, Currency.tryLira, 1400, 'Aidat'),
+  _Seed(5, TransactionType.expense, 112, 11200, Currency.tryLira, 3500, null),
+  _Seed(3, TransactionType.expense, 115, 11503, Currency.usd, 20, 'ChatGPT'),
+  _Seed(1, TransactionType.expense, 113, 11303, Currency.tryLira, 480, 'Kahve'),
 ];
 
 class _Seed {
@@ -67,15 +80,19 @@ class _Seed {
     this.daysAgo,
     this.type,
     this.categoryId,
+    this.subcategoryId,
     this.currency,
     this.amount,
-    this.description,
-  );
+    this.description, {
+    this.debtOperation,
+  });
 
   final int daysAgo;
   final TransactionType type;
   final int categoryId;
+  final int? subcategoryId;
   final Currency currency;
   final double amount;
   final String? description;
+  final DebtOperation? debtOperation;
 }

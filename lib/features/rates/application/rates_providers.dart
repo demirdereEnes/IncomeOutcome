@@ -17,13 +17,30 @@ final exchangeRateRepositoryProvider = Provider<ExchangeRateRepository>((ref) {
   );
 });
 
-/// Current rates, cache-first. Never blocks the dashboard - only the entry
-/// form needs them, and only at save time.
-final currentRatesProvider = FutureProvider<RatesLoadResult>(
-  (ref) => ref.watch(exchangeRateRepositoryProvider).load(),
-);
+/// Cache-first current rates. Building this never blocks the dashboard - only
+/// the entry form needs it, and only at save time.
+class CurrentRatesNotifier extends AsyncNotifier<RatesLoadResult> {
+  @override
+  Future<RatesLoadResult> build() =>
+      ref.watch(exchangeRateRepositoryProvider).load();
 
-/// Convenience accessor for callers that only care about the value.
+  /// User-triggered refresh. Bypasses the 3 hour cache and only replaces the
+  /// state once a real response has been validated and persisted.
+  Future<RatesLoadResult> refreshNow() async {
+    final result = await ref
+        .read(exchangeRateRepositoryProvider)
+        .manualRefresh();
+    state = AsyncData(result);
+    return result;
+  }
+}
+
+final currentRatesProvider =
+    AsyncNotifierProvider<CurrentRatesNotifier, RatesLoadResult>(
+      CurrentRatesNotifier.new,
+    );
+
+/// Latest valid rates, used for *current* asset and debt valuation.
 final currentExchangeRatesProvider = Provider<ExchangeRates?>(
   (ref) => ref.watch(currentRatesProvider).value?.rates,
 );

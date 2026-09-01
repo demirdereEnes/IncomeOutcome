@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/models/currency.dart';
+import '../../../../shared/models/debt_operation.dart';
 import '../../../../shared/models/transaction_type.dart';
 
 /// Label + field pairing used by every row of the transaction form.
@@ -99,6 +100,93 @@ class _TypeOption extends StatelessWidget {
             child: Text(
               type.label,
               style: AppTypography.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? AppColors.textOnPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Contextual switch shown only for debt-related expense subcategories.
+/// Both options keep the entry out of Total Expense.
+class DebtOperationSelector extends StatelessWidget {
+  const DebtOperationSelector({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final DebtOperation selected;
+  final ValueChanged<DebtOperation> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          for (final operation in DebtOperation.values)
+            Expanded(
+              child: _DebtOption(
+                operation: operation,
+                isSelected: operation == selected,
+                onTap: () => onChanged(operation),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtOption extends StatelessWidget {
+  const _DebtOption({
+    required this.operation,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final DebtOperation operation;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = operation == DebtOperation.add
+        ? AppColors.negative
+        : AppColors.positive;
+    final radius = BorderRadius.circular(AppRadius.sm);
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isSelected ? accent : Colors.transparent,
+              borderRadius: radius,
+            ),
+            child: Text(
+              operation.label,
+              style: AppTypography.label.copyWith(
                 fontWeight: FontWeight.w600,
                 color: isSelected
                     ? AppColors.textOnPrimary

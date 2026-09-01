@@ -62,6 +62,26 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _subcategoryIdMeta = const VerificationMeta(
+    'subcategoryId',
+  );
+  @override
+  late final GeneratedColumn<int> subcategoryId = GeneratedColumn<int>(
+    'subcategory_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DebtOperation?, String>
+  debtOperation = GeneratedColumn<String>(
+    'debt_operation',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<DebtOperation?>($TransactionsTable.$converterdebtOperationn);
   static const VerificationMeta _transactionDateMeta = const VerificationMeta(
     'transactionDate',
   );
@@ -159,6 +179,8 @@ class $TransactionsTable extends Transactions
     currency,
     amountMinor,
     categoryId,
+    subcategoryId,
+    debtOperation,
     transactionDate,
     description,
     usdTryRate,
@@ -201,6 +223,15 @@ class $TransactionsTable extends Transactions
       );
     } else if (isInserting) {
       context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('subcategory_id')) {
+      context.handle(
+        _subcategoryIdMeta,
+        subcategoryId.isAcceptableOrUnknown(
+          data['subcategory_id']!,
+          _subcategoryIdMeta,
+        ),
+      );
     }
     if (data.containsKey('transaction_date')) {
       context.handle(
@@ -307,6 +338,16 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
       )!,
+      subcategoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subcategory_id'],
+      ),
+      debtOperation: $TransactionsTable.$converterdebtOperationn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}debt_operation'],
+        ),
+      ),
       transactionDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}transaction_date'],
@@ -351,6 +392,14 @@ class $TransactionsTable extends Transactions
       const EnumNameConverter<TransactionType>(TransactionType.values);
   static JsonTypeConverter2<Currency, String, String> $convertercurrency =
       const EnumNameConverter<Currency>(Currency.values);
+  static JsonTypeConverter2<DebtOperation, String, String>
+  $converterdebtOperation = const EnumNameConverter<DebtOperation>(
+    DebtOperation.values,
+  );
+  static JsonTypeConverter2<DebtOperation?, String?, String?>
+  $converterdebtOperationn = JsonTypeConverter2.asNullable(
+    $converterdebtOperation,
+  );
 }
 
 class TransactionRow extends DataClass implements Insertable<TransactionRow> {
@@ -363,6 +412,12 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
   /// Amount in [currency], scaled by 100 so no float rounding can creep in.
   final int amountMinor;
   final int categoryId;
+
+  /// Added in schema v3; null for rows created before subcategories existed.
+  final int? subcategoryId;
+
+  /// Added in schema v3. Non-null rows are debt movements, not spending.
+  final DebtOperation? debtOperation;
   final DateTime transactionDate;
   final String? description;
   final double? usdTryRate;
@@ -377,6 +432,8 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     required this.currency,
     required this.amountMinor,
     required this.categoryId,
+    this.subcategoryId,
+    this.debtOperation,
     required this.transactionDate,
     this.description,
     this.usdTryRate,
@@ -402,6 +459,14 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     }
     map['amount_minor'] = Variable<int>(amountMinor);
     map['category_id'] = Variable<int>(categoryId);
+    if (!nullToAbsent || subcategoryId != null) {
+      map['subcategory_id'] = Variable<int>(subcategoryId);
+    }
+    if (!nullToAbsent || debtOperation != null) {
+      map['debt_operation'] = Variable<String>(
+        $TransactionsTable.$converterdebtOperationn.toSql(debtOperation),
+      );
+    }
     map['transaction_date'] = Variable<DateTime>(transactionDate);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
@@ -430,6 +495,12 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       currency: Value(currency),
       amountMinor: Value(amountMinor),
       categoryId: Value(categoryId),
+      subcategoryId: subcategoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subcategoryId),
+      debtOperation: debtOperation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(debtOperation),
       transactionDate: Value(transactionDate),
       description: description == null && nullToAbsent
           ? const Value.absent()
@@ -466,6 +537,10 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       ),
       amountMinor: serializer.fromJson<int>(json['amountMinor']),
       categoryId: serializer.fromJson<int>(json['categoryId']),
+      subcategoryId: serializer.fromJson<int?>(json['subcategoryId']),
+      debtOperation: $TransactionsTable.$converterdebtOperationn.fromJson(
+        serializer.fromJson<String?>(json['debtOperation']),
+      ),
       transactionDate: serializer.fromJson<DateTime>(json['transactionDate']),
       description: serializer.fromJson<String?>(json['description']),
       usdTryRate: serializer.fromJson<double?>(json['usdTryRate']),
@@ -489,6 +564,10 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       ),
       'amountMinor': serializer.toJson<int>(amountMinor),
       'categoryId': serializer.toJson<int>(categoryId),
+      'subcategoryId': serializer.toJson<int?>(subcategoryId),
+      'debtOperation': serializer.toJson<String?>(
+        $TransactionsTable.$converterdebtOperationn.toJson(debtOperation),
+      ),
       'transactionDate': serializer.toJson<DateTime>(transactionDate),
       'description': serializer.toJson<String?>(description),
       'usdTryRate': serializer.toJson<double?>(usdTryRate),
@@ -506,6 +585,8 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     Currency? currency,
     int? amountMinor,
     int? categoryId,
+    Value<int?> subcategoryId = const Value.absent(),
+    Value<DebtOperation?> debtOperation = const Value.absent(),
     DateTime? transactionDate,
     Value<String?> description = const Value.absent(),
     Value<double?> usdTryRate = const Value.absent(),
@@ -520,6 +601,12 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     currency: currency ?? this.currency,
     amountMinor: amountMinor ?? this.amountMinor,
     categoryId: categoryId ?? this.categoryId,
+    subcategoryId: subcategoryId.present
+        ? subcategoryId.value
+        : this.subcategoryId,
+    debtOperation: debtOperation.present
+        ? debtOperation.value
+        : this.debtOperation,
     transactionDate: transactionDate ?? this.transactionDate,
     description: description.present ? description.value : this.description,
     usdTryRate: usdTryRate.present ? usdTryRate.value : this.usdTryRate,
@@ -542,6 +629,12 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      subcategoryId: data.subcategoryId.present
+          ? data.subcategoryId.value
+          : this.subcategoryId,
+      debtOperation: data.debtOperation.present
+          ? data.debtOperation.value
+          : this.debtOperation,
       transactionDate: data.transactionDate.present
           ? data.transactionDate.value
           : this.transactionDate,
@@ -573,6 +666,8 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
           ..write('currency: $currency, ')
           ..write('amountMinor: $amountMinor, ')
           ..write('categoryId: $categoryId, ')
+          ..write('subcategoryId: $subcategoryId, ')
+          ..write('debtOperation: $debtOperation, ')
           ..write('transactionDate: $transactionDate, ')
           ..write('description: $description, ')
           ..write('usdTryRate: $usdTryRate, ')
@@ -592,6 +687,8 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
     currency,
     amountMinor,
     categoryId,
+    subcategoryId,
+    debtOperation,
     transactionDate,
     description,
     usdTryRate,
@@ -610,6 +707,8 @@ class TransactionRow extends DataClass implements Insertable<TransactionRow> {
           other.currency == this.currency &&
           other.amountMinor == this.amountMinor &&
           other.categoryId == this.categoryId &&
+          other.subcategoryId == this.subcategoryId &&
+          other.debtOperation == this.debtOperation &&
           other.transactionDate == this.transactionDate &&
           other.description == this.description &&
           other.usdTryRate == this.usdTryRate &&
@@ -626,6 +725,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
   final Value<Currency> currency;
   final Value<int> amountMinor;
   final Value<int> categoryId;
+  final Value<int?> subcategoryId;
+  final Value<DebtOperation?> debtOperation;
   final Value<DateTime> transactionDate;
   final Value<String?> description;
   final Value<double?> usdTryRate;
@@ -640,6 +741,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     this.currency = const Value.absent(),
     this.amountMinor = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.subcategoryId = const Value.absent(),
+    this.debtOperation = const Value.absent(),
     this.transactionDate = const Value.absent(),
     this.description = const Value.absent(),
     this.usdTryRate = const Value.absent(),
@@ -655,6 +758,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     required Currency currency,
     required int amountMinor,
     required int categoryId,
+    this.subcategoryId = const Value.absent(),
+    this.debtOperation = const Value.absent(),
     required DateTime transactionDate,
     this.description = const Value.absent(),
     this.usdTryRate = const Value.absent(),
@@ -676,6 +781,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     Expression<String>? currency,
     Expression<int>? amountMinor,
     Expression<int>? categoryId,
+    Expression<int>? subcategoryId,
+    Expression<String>? debtOperation,
     Expression<DateTime>? transactionDate,
     Expression<String>? description,
     Expression<double>? usdTryRate,
@@ -691,6 +798,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
       if (currency != null) 'currency': currency,
       if (amountMinor != null) 'amount_minor': amountMinor,
       if (categoryId != null) 'category_id': categoryId,
+      if (subcategoryId != null) 'subcategory_id': subcategoryId,
+      if (debtOperation != null) 'debt_operation': debtOperation,
       if (transactionDate != null) 'transaction_date': transactionDate,
       if (description != null) 'description': description,
       if (usdTryRate != null) 'usd_try_rate': usdTryRate,
@@ -708,6 +817,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     Value<Currency>? currency,
     Value<int>? amountMinor,
     Value<int>? categoryId,
+    Value<int?>? subcategoryId,
+    Value<DebtOperation?>? debtOperation,
     Value<DateTime>? transactionDate,
     Value<String?>? description,
     Value<double?>? usdTryRate,
@@ -723,6 +834,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
       currency: currency ?? this.currency,
       amountMinor: amountMinor ?? this.amountMinor,
       categoryId: categoryId ?? this.categoryId,
+      subcategoryId: subcategoryId ?? this.subcategoryId,
+      debtOperation: debtOperation ?? this.debtOperation,
       transactionDate: transactionDate ?? this.transactionDate,
       description: description ?? this.description,
       usdTryRate: usdTryRate ?? this.usdTryRate,
@@ -755,6 +868,14 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
     }
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
+    }
+    if (subcategoryId.present) {
+      map['subcategory_id'] = Variable<int>(subcategoryId.value);
+    }
+    if (debtOperation.present) {
+      map['debt_operation'] = Variable<String>(
+        $TransactionsTable.$converterdebtOperationn.toSql(debtOperation.value),
+      );
     }
     if (transactionDate.present) {
       map['transaction_date'] = Variable<DateTime>(transactionDate.value);
@@ -791,6 +912,8 @@ class TransactionsCompanion extends UpdateCompanion<TransactionRow> {
           ..write('currency: $currency, ')
           ..write('amountMinor: $amountMinor, ')
           ..write('categoryId: $categoryId, ')
+          ..write('subcategoryId: $subcategoryId, ')
+          ..write('debtOperation: $debtOperation, ')
           ..write('transactionDate: $transactionDate, ')
           ..write('description: $description, ')
           ..write('usdTryRate: $usdTryRate, ')
@@ -867,6 +990,41 @@ class $ExchangeRateCacheTable extends ExchangeRateCache
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sourceUpdatedAtMeta = const VerificationMeta(
+    'sourceUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> sourceUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'source_updated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _cachedAtMeta = const VerificationMeta(
+    'cachedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cachedAt = GeneratedColumn<DateTime>(
+    'cached_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _baseCurrencyMeta = const VerificationMeta(
+    'baseCurrency',
+  );
+  @override
+  late final GeneratedColumn<String> baseCurrency = GeneratedColumn<String>(
+    'base_currency',
+    aliasedName,
+    true,
+    additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 8),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _sourceMeta = const VerificationMeta('source');
   @override
   late final GeneratedColumn<String> source = GeneratedColumn<String>(
@@ -884,6 +1042,9 @@ class $ExchangeRateCacheTable extends ExchangeRateCache
     eurTryRate,
     xauTryRate,
     fetchedAt,
+    sourceUpdatedAt,
+    cachedAt,
+    baseCurrency,
     source,
   ];
   @override
@@ -942,6 +1103,30 @@ class $ExchangeRateCacheTable extends ExchangeRateCache
     } else if (isInserting) {
       context.missing(_fetchedAtMeta);
     }
+    if (data.containsKey('source_updated_at')) {
+      context.handle(
+        _sourceUpdatedAtMeta,
+        sourceUpdatedAt.isAcceptableOrUnknown(
+          data['source_updated_at']!,
+          _sourceUpdatedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cached_at')) {
+      context.handle(
+        _cachedAtMeta,
+        cachedAt.isAcceptableOrUnknown(data['cached_at']!, _cachedAtMeta),
+      );
+    }
+    if (data.containsKey('base_currency')) {
+      context.handle(
+        _baseCurrencyMeta,
+        baseCurrency.isAcceptableOrUnknown(
+          data['base_currency']!,
+          _baseCurrencyMeta,
+        ),
+      );
+    }
     if (data.containsKey('source')) {
       context.handle(
         _sourceMeta,
@@ -979,6 +1164,18 @@ class $ExchangeRateCacheTable extends ExchangeRateCache
         DriftSqlType.dateTime,
         data['${effectivePrefix}fetched_at'],
       )!,
+      sourceUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}source_updated_at'],
+      ),
+      cachedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cached_at'],
+      ),
+      baseCurrency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}base_currency'],
+      ),
       source: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source'],
@@ -997,7 +1194,19 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
   final double usdTryRate;
   final double eurTryRate;
   final double xauTryRate;
+
+  /// When the app successfully retrieved the response.
   final DateTime fetchedAt;
+
+  /// Quote time reported by the provider. Added in v3; null when the provider
+  /// exposes no trustworthy source timestamp.
+  final DateTime? sourceUpdatedAt;
+
+  /// When the row was persisted locally. Added in v3.
+  final DateTime? cachedAt;
+
+  /// Base currency of the upstream response. Added in v3.
+  final String? baseCurrency;
   final String source;
   const ExchangeRateRow({
     required this.id,
@@ -1005,6 +1214,9 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
     required this.eurTryRate,
     required this.xauTryRate,
     required this.fetchedAt,
+    this.sourceUpdatedAt,
+    this.cachedAt,
+    this.baseCurrency,
     required this.source,
   });
   @override
@@ -1015,6 +1227,15 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
     map['eur_try_rate'] = Variable<double>(eurTryRate);
     map['xau_try_rate'] = Variable<double>(xauTryRate);
     map['fetched_at'] = Variable<DateTime>(fetchedAt);
+    if (!nullToAbsent || sourceUpdatedAt != null) {
+      map['source_updated_at'] = Variable<DateTime>(sourceUpdatedAt);
+    }
+    if (!nullToAbsent || cachedAt != null) {
+      map['cached_at'] = Variable<DateTime>(cachedAt);
+    }
+    if (!nullToAbsent || baseCurrency != null) {
+      map['base_currency'] = Variable<String>(baseCurrency);
+    }
     map['source'] = Variable<String>(source);
     return map;
   }
@@ -1026,6 +1247,15 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
       eurTryRate: Value(eurTryRate),
       xauTryRate: Value(xauTryRate),
       fetchedAt: Value(fetchedAt),
+      sourceUpdatedAt: sourceUpdatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceUpdatedAt),
+      cachedAt: cachedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cachedAt),
+      baseCurrency: baseCurrency == null && nullToAbsent
+          ? const Value.absent()
+          : Value(baseCurrency),
       source: Value(source),
     );
   }
@@ -1041,6 +1271,9 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
       eurTryRate: serializer.fromJson<double>(json['eurTryRate']),
       xauTryRate: serializer.fromJson<double>(json['xauTryRate']),
       fetchedAt: serializer.fromJson<DateTime>(json['fetchedAt']),
+      sourceUpdatedAt: serializer.fromJson<DateTime?>(json['sourceUpdatedAt']),
+      cachedAt: serializer.fromJson<DateTime?>(json['cachedAt']),
+      baseCurrency: serializer.fromJson<String?>(json['baseCurrency']),
       source: serializer.fromJson<String>(json['source']),
     );
   }
@@ -1053,6 +1286,9 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
       'eurTryRate': serializer.toJson<double>(eurTryRate),
       'xauTryRate': serializer.toJson<double>(xauTryRate),
       'fetchedAt': serializer.toJson<DateTime>(fetchedAt),
+      'sourceUpdatedAt': serializer.toJson<DateTime?>(sourceUpdatedAt),
+      'cachedAt': serializer.toJson<DateTime?>(cachedAt),
+      'baseCurrency': serializer.toJson<String?>(baseCurrency),
       'source': serializer.toJson<String>(source),
     };
   }
@@ -1063,6 +1299,9 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
     double? eurTryRate,
     double? xauTryRate,
     DateTime? fetchedAt,
+    Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+    Value<DateTime?> cachedAt = const Value.absent(),
+    Value<String?> baseCurrency = const Value.absent(),
     String? source,
   }) => ExchangeRateRow(
     id: id ?? this.id,
@@ -1070,6 +1309,11 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
     eurTryRate: eurTryRate ?? this.eurTryRate,
     xauTryRate: xauTryRate ?? this.xauTryRate,
     fetchedAt: fetchedAt ?? this.fetchedAt,
+    sourceUpdatedAt: sourceUpdatedAt.present
+        ? sourceUpdatedAt.value
+        : this.sourceUpdatedAt,
+    cachedAt: cachedAt.present ? cachedAt.value : this.cachedAt,
+    baseCurrency: baseCurrency.present ? baseCurrency.value : this.baseCurrency,
     source: source ?? this.source,
   );
   ExchangeRateRow copyWithCompanion(ExchangeRateCacheCompanion data) {
@@ -1085,6 +1329,13 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
           ? data.xauTryRate.value
           : this.xauTryRate,
       fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+      sourceUpdatedAt: data.sourceUpdatedAt.present
+          ? data.sourceUpdatedAt.value
+          : this.sourceUpdatedAt,
+      cachedAt: data.cachedAt.present ? data.cachedAt.value : this.cachedAt,
+      baseCurrency: data.baseCurrency.present
+          ? data.baseCurrency.value
+          : this.baseCurrency,
       source: data.source.present ? data.source.value : this.source,
     );
   }
@@ -1097,14 +1348,26 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
           ..write('eurTryRate: $eurTryRate, ')
           ..write('xauTryRate: $xauTryRate, ')
           ..write('fetchedAt: $fetchedAt, ')
+          ..write('sourceUpdatedAt: $sourceUpdatedAt, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('baseCurrency: $baseCurrency, ')
           ..write('source: $source')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, usdTryRate, eurTryRate, xauTryRate, fetchedAt, source);
+  int get hashCode => Object.hash(
+    id,
+    usdTryRate,
+    eurTryRate,
+    xauTryRate,
+    fetchedAt,
+    sourceUpdatedAt,
+    cachedAt,
+    baseCurrency,
+    source,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1114,6 +1377,9 @@ class ExchangeRateRow extends DataClass implements Insertable<ExchangeRateRow> {
           other.eurTryRate == this.eurTryRate &&
           other.xauTryRate == this.xauTryRate &&
           other.fetchedAt == this.fetchedAt &&
+          other.sourceUpdatedAt == this.sourceUpdatedAt &&
+          other.cachedAt == this.cachedAt &&
+          other.baseCurrency == this.baseCurrency &&
           other.source == this.source);
 }
 
@@ -1123,6 +1389,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
   final Value<double> eurTryRate;
   final Value<double> xauTryRate;
   final Value<DateTime> fetchedAt;
+  final Value<DateTime?> sourceUpdatedAt;
+  final Value<DateTime?> cachedAt;
+  final Value<String?> baseCurrency;
   final Value<String> source;
   const ExchangeRateCacheCompanion({
     this.id = const Value.absent(),
@@ -1130,6 +1399,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
     this.eurTryRate = const Value.absent(),
     this.xauTryRate = const Value.absent(),
     this.fetchedAt = const Value.absent(),
+    this.sourceUpdatedAt = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.baseCurrency = const Value.absent(),
     this.source = const Value.absent(),
   });
   ExchangeRateCacheCompanion.insert({
@@ -1138,6 +1410,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
     required double eurTryRate,
     required double xauTryRate,
     required DateTime fetchedAt,
+    this.sourceUpdatedAt = const Value.absent(),
+    this.cachedAt = const Value.absent(),
+    this.baseCurrency = const Value.absent(),
     required String source,
   }) : usdTryRate = Value(usdTryRate),
        eurTryRate = Value(eurTryRate),
@@ -1150,6 +1425,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
     Expression<double>? eurTryRate,
     Expression<double>? xauTryRate,
     Expression<DateTime>? fetchedAt,
+    Expression<DateTime>? sourceUpdatedAt,
+    Expression<DateTime>? cachedAt,
+    Expression<String>? baseCurrency,
     Expression<String>? source,
   }) {
     return RawValuesInsertable({
@@ -1158,6 +1436,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
       if (eurTryRate != null) 'eur_try_rate': eurTryRate,
       if (xauTryRate != null) 'xau_try_rate': xauTryRate,
       if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (sourceUpdatedAt != null) 'source_updated_at': sourceUpdatedAt,
+      if (cachedAt != null) 'cached_at': cachedAt,
+      if (baseCurrency != null) 'base_currency': baseCurrency,
       if (source != null) 'source': source,
     });
   }
@@ -1168,6 +1449,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
     Value<double>? eurTryRate,
     Value<double>? xauTryRate,
     Value<DateTime>? fetchedAt,
+    Value<DateTime?>? sourceUpdatedAt,
+    Value<DateTime?>? cachedAt,
+    Value<String?>? baseCurrency,
     Value<String>? source,
   }) {
     return ExchangeRateCacheCompanion(
@@ -1176,6 +1460,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
       eurTryRate: eurTryRate ?? this.eurTryRate,
       xauTryRate: xauTryRate ?? this.xauTryRate,
       fetchedAt: fetchedAt ?? this.fetchedAt,
+      sourceUpdatedAt: sourceUpdatedAt ?? this.sourceUpdatedAt,
+      cachedAt: cachedAt ?? this.cachedAt,
+      baseCurrency: baseCurrency ?? this.baseCurrency,
       source: source ?? this.source,
     );
   }
@@ -1198,6 +1485,15 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
     if (fetchedAt.present) {
       map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
     }
+    if (sourceUpdatedAt.present) {
+      map['source_updated_at'] = Variable<DateTime>(sourceUpdatedAt.value);
+    }
+    if (cachedAt.present) {
+      map['cached_at'] = Variable<DateTime>(cachedAt.value);
+    }
+    if (baseCurrency.present) {
+      map['base_currency'] = Variable<String>(baseCurrency.value);
+    }
     if (source.present) {
       map['source'] = Variable<String>(source.value);
     }
@@ -1212,6 +1508,9 @@ class ExchangeRateCacheCompanion extends UpdateCompanion<ExchangeRateRow> {
           ..write('eurTryRate: $eurTryRate, ')
           ..write('xauTryRate: $xauTryRate, ')
           ..write('fetchedAt: $fetchedAt, ')
+          ..write('sourceUpdatedAt: $sourceUpdatedAt, ')
+          ..write('cachedAt: $cachedAt, ')
+          ..write('baseCurrency: $baseCurrency, ')
           ..write('source: $source')
           ..write(')'))
         .toString();
@@ -1241,6 +1540,8 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required Currency currency,
       required int amountMinor,
       required int categoryId,
+      Value<int?> subcategoryId,
+      Value<DebtOperation?> debtOperation,
       required DateTime transactionDate,
       Value<String?> description,
       Value<double?> usdTryRate,
@@ -1257,6 +1558,8 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<Currency> currency,
       Value<int> amountMinor,
       Value<int> categoryId,
+      Value<int?> subcategoryId,
+      Value<DebtOperation?> debtOperation,
       Value<DateTime> transactionDate,
       Value<String?> description,
       Value<double?> usdTryRate,
@@ -1301,6 +1604,17 @@ class $$TransactionsTableFilterComposer
   ColumnFilters<int> get categoryId => $composableBuilder(
     column: $table.categoryId,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subcategoryId => $composableBuilder(
+    column: $table.subcategoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DebtOperation?, DebtOperation, String>
+  get debtOperation => $composableBuilder(
+    column: $table.debtOperation,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<DateTime> get transactionDate => $composableBuilder(
@@ -1378,6 +1692,16 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get subcategoryId => $composableBuilder(
+    column: $table.subcategoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get debtOperation => $composableBuilder(
+    column: $table.debtOperation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get transactionDate => $composableBuilder(
     column: $table.transactionDate,
     builder: (column) => ColumnOrderings(column),
@@ -1446,6 +1770,17 @@ class $$TransactionsTableAnnotationComposer
     column: $table.categoryId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get subcategoryId => $composableBuilder(
+    column: $table.subcategoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<DebtOperation?, String> get debtOperation =>
+      $composableBuilder(
+        column: $table.debtOperation,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<DateTime> get transactionDate => $composableBuilder(
     column: $table.transactionDate,
@@ -1520,6 +1855,8 @@ class $$TransactionsTableTableManager
                 Value<Currency> currency = const Value.absent(),
                 Value<int> amountMinor = const Value.absent(),
                 Value<int> categoryId = const Value.absent(),
+                Value<int?> subcategoryId = const Value.absent(),
+                Value<DebtOperation?> debtOperation = const Value.absent(),
                 Value<DateTime> transactionDate = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<double?> usdTryRate = const Value.absent(),
@@ -1534,6 +1871,8 @@ class $$TransactionsTableTableManager
                 currency: currency,
                 amountMinor: amountMinor,
                 categoryId: categoryId,
+                subcategoryId: subcategoryId,
+                debtOperation: debtOperation,
                 transactionDate: transactionDate,
                 description: description,
                 usdTryRate: usdTryRate,
@@ -1550,6 +1889,8 @@ class $$TransactionsTableTableManager
                 required Currency currency,
                 required int amountMinor,
                 required int categoryId,
+                Value<int?> subcategoryId = const Value.absent(),
+                Value<DebtOperation?> debtOperation = const Value.absent(),
                 required DateTime transactionDate,
                 Value<String?> description = const Value.absent(),
                 Value<double?> usdTryRate = const Value.absent(),
@@ -1564,6 +1905,8 @@ class $$TransactionsTableTableManager
                 currency: currency,
                 amountMinor: amountMinor,
                 categoryId: categoryId,
+                subcategoryId: subcategoryId,
+                debtOperation: debtOperation,
                 transactionDate: transactionDate,
                 description: description,
                 usdTryRate: usdTryRate,
@@ -1605,6 +1948,9 @@ typedef $$ExchangeRateCacheTableCreateCompanionBuilder =
       required double eurTryRate,
       required double xauTryRate,
       required DateTime fetchedAt,
+      Value<DateTime?> sourceUpdatedAt,
+      Value<DateTime?> cachedAt,
+      Value<String?> baseCurrency,
       required String source,
     });
 typedef $$ExchangeRateCacheTableUpdateCompanionBuilder =
@@ -1614,6 +1960,9 @@ typedef $$ExchangeRateCacheTableUpdateCompanionBuilder =
       Value<double> eurTryRate,
       Value<double> xauTryRate,
       Value<DateTime> fetchedAt,
+      Value<DateTime?> sourceUpdatedAt,
+      Value<DateTime?> cachedAt,
+      Value<String?> baseCurrency,
       Value<String> source,
     });
 
@@ -1648,6 +1997,21 @@ class $$ExchangeRateCacheTableFilterComposer
 
   ColumnFilters<DateTime> get fetchedAt => $composableBuilder(
     column: $table.fetchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baseCurrency => $composableBuilder(
+    column: $table.baseCurrency,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1691,6 +2055,21 @@ class $$ExchangeRateCacheTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get cachedAt => $composableBuilder(
+    column: $table.cachedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baseCurrency => $composableBuilder(
+    column: $table.baseCurrency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get source => $composableBuilder(
     column: $table.source,
     builder: (column) => ColumnOrderings(column),
@@ -1726,6 +2105,19 @@ class $$ExchangeRateCacheTableAnnotationComposer
 
   GeneratedColumn<DateTime> get fetchedAt =>
       $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get sourceUpdatedAt => $composableBuilder(
+    column: $table.sourceUpdatedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get cachedAt =>
+      $composableBuilder(column: $table.cachedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get baseCurrency => $composableBuilder(
+    column: $table.baseCurrency,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get source =>
       $composableBuilder(column: $table.source, builder: (column) => column);
@@ -1776,6 +2168,9 @@ class $$ExchangeRateCacheTableTableManager
                 Value<double> eurTryRate = const Value.absent(),
                 Value<double> xauTryRate = const Value.absent(),
                 Value<DateTime> fetchedAt = const Value.absent(),
+                Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+                Value<DateTime?> cachedAt = const Value.absent(),
+                Value<String?> baseCurrency = const Value.absent(),
                 Value<String> source = const Value.absent(),
               }) => ExchangeRateCacheCompanion(
                 id: id,
@@ -1783,6 +2178,9 @@ class $$ExchangeRateCacheTableTableManager
                 eurTryRate: eurTryRate,
                 xauTryRate: xauTryRate,
                 fetchedAt: fetchedAt,
+                sourceUpdatedAt: sourceUpdatedAt,
+                cachedAt: cachedAt,
+                baseCurrency: baseCurrency,
                 source: source,
               ),
           createCompanionCallback:
@@ -1792,6 +2190,9 @@ class $$ExchangeRateCacheTableTableManager
                 required double eurTryRate,
                 required double xauTryRate,
                 required DateTime fetchedAt,
+                Value<DateTime?> sourceUpdatedAt = const Value.absent(),
+                Value<DateTime?> cachedAt = const Value.absent(),
+                Value<String?> baseCurrency = const Value.absent(),
                 required String source,
               }) => ExchangeRateCacheCompanion.insert(
                 id: id,
@@ -1799,6 +2200,9 @@ class $$ExchangeRateCacheTableTableManager
                 eurTryRate: eurTryRate,
                 xauTryRate: xauTryRate,
                 fetchedAt: fetchedAt,
+                sourceUpdatedAt: sourceUpdatedAt,
+                cachedAt: cachedAt,
+                baseCurrency: baseCurrency,
                 source: source,
               ),
           withReferenceMapper: (p0) => p0

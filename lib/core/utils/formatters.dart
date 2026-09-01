@@ -13,12 +13,14 @@ abstract final class Formatters {
   static final DateFormat _axisDate = DateFormat('d MMM', _locale);
   static final DateFormat _timeOfDay = DateFormat('HH:mm', _locale);
 
-  /// `₺125.000,50`, `$3.025,75`, `€2.750,20`, `12,45 gr`
+  /// `₺125.000,50`, `$3.025,75`, `€2.750,20`, `12,45 gr`.
+  /// Negative values keep the sign in front of the symbol: `-₺25.000,00`.
   static String money(double amount, Currency currency) {
-    final formatted = _decimal.format(amount);
-    return currency.symbolIsPrefix
+    final formatted = _decimal.format(amount.abs());
+    final body = currency.symbolIsPrefix
         ? '${currency.symbol}$formatted'
         : '$formatted${currency.symbol}';
+    return amount < 0 ? '-$body' : body;
   }
 
   /// Same as [money] but with an explicit `+` / `-` sign.

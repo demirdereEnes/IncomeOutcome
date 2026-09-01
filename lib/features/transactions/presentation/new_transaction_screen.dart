@@ -6,11 +6,12 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/money.dart';
 import '../../../shared/models/currency.dart';
+import '../../../shared/models/debt_operation.dart';
 import '../../../shared/models/transaction_type.dart';
 import '../../../shared/widgets/currency_segmented_control.dart';
 import '../../categories/application/categories_providers.dart';
 import '../../categories/domain/category.dart';
-import '../../categories/domain/default_categories.dart';
+import '../../categories/domain/category_catalog.dart';
 import '../../rates/application/rates_providers.dart';
 import '../application/transactions_providers.dart';
 import '../domain/transaction.dart';
@@ -34,8 +35,14 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
   TransactionType _type = TransactionType.income;
   Currency _currency = Currency.tryLira;
   Category? _category;
+  Subcategory? _subcategory;
+  DebtOperation _debtOperation = DebtOperation.pay;
   DateTime _date = DateTime.now();
   bool _isSaving = false;
+  bool _isRefreshingRates = false;
+
+  bool get _isDebtEntry =>
+      _subcategory != null && debtSubcategoryIds.contains(_subcategory!.id);
 
   @override
   void dispose() {
@@ -48,6 +55,7 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
   Widget build(BuildContext context) {
     final ratesAsync = ref.watch(currentRatesProvider);
     final ratesResult = ratesAsync.value;
+    final category = _category;
 
     return Scaffold(
       appBar: AppBar(
@@ -93,15 +101,38 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
             FormSection(
               label: 'Kategori',
               child: PickerField(
-                text: _category?.name ?? 'Kategori seç',
-                isPlaceholder: _category == null,
-                leadingIcon: _category == null
+                text: category?.name ?? 'Kategori seç',
+                isPlaceholder: category == null,
+                leadingIcon: category == null
                     ? null
-                    : categoryIcon(_category!.iconKey),
+                    : categoryIcon(category.iconKey),
                 trailingIcon: Icons.keyboard_arrow_down_rounded,
                 onTap: _pickCategory,
               ),
             ),
+            if (category != null && category.hasSubcategories) ...[
+              const SizedBox(height: AppSpacing.xl),
+              FormSection(
+                label: 'Alt Kategori',
+                child: PickerField(
+                  text: _subcategory?.name ?? 'Alt kategori seç',
+                  isPlaceholder: _subcategory == null,
+                  trailingIcon: Icons.keyboard_arrow_down_rounded,
+                  onTap: _pickSubcategory,
+                ),
+              ),
+            ],
+            if (_isDebtEntry) ...[
+              const SizedBox(height: AppSpacing.xl),
+              FormSection(
+                label: 'Borç Hareketi',
+                child: DebtOperationSelector(
+                  selected: _debtOperation,
+                  onChanged: (operation) =>
+                      setState(() => _debtOperation = operation),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.xl),
             FormSection(
               label: 'Tarih',
@@ -128,7 +159,9 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
             RateSnapshotCard(
               rates: ratesResult?.rates,
               isLoading: ratesAsync.isLoading,
+              isRefreshing: _isRefreshingRates,
               refreshFailed: ratesResult?.refreshFailed ?? false,
+              onRefresh: _refreshRates,
             ),
           ],
         ),
@@ -155,6 +188,8 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
     setState(() {
       _type = type;
       _category = null; // category lists differ per type
+      _subcategory = null;
+      _debtOperation = DebtOperation.pay;
     });
   }
 
@@ -165,14 +200,35 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
 
   Future<void> _pickCategory() async {
     FocusScope.of(context).unfocus();
-    final categories = ref.read(categoriesByTypeProvider(_type));
+    final categories = ref.read(selectableCategoriesProvider(_type));
     final selection = await showCategoryPicker(
       context,
       categories: categories,
       selected: _category,
     );
+    if (selection == null || !mounted) return;
+
+    setState(() {
+      _category = selection;
+      _subcategory = null;
+      _debtOperation = DebtOperation.pay;
+    });
+
+    if (selection.hasSubcategories) await _pickSubcategory();
+  }
+
+  Future<void> _pickSubcategory() async {
+    final category = _category;
+    if (category == null || !category.hasSubcategories) return;
+
+    FocusScope.of(context).unfocus();
+    final selection = await showSubcategoryPicker(
+      context,
+      category: category,
+      selected: _subcategory,
+    );
     if (selection != null && mounted) {
-      setState(() => _category = selection);
+      setState(() => _subcategory = selection);
     }
   }
 
@@ -190,6 +246,17 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
     }
   }
 
+  Future<void> _refreshRates() async {
+    setState(() => _isRefreshingRates = true);
+    final result = await ref.read(currentRatesProvider.notifier).refreshNow();
+    if (!mounted) return;
+    setState(() => _isRefreshingRates = false);
+
+    if (result.refreshFailed) {
+      _showMessage('Kur güncellenemedi. Son kayıtlı kur kullanılıyor.');
+    }
+  }
+
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -203,6 +270,10 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
     final category = _category;
     if (category == null) {
       _showMessage('Lütfen bir kategori seçin.');
+      return;
+    }
+    if (category.hasSubcategories && _subcategory == null) {
+      _showMessage('Lütfen bir alt kategori seçin.');
       return;
     }
 
@@ -227,6 +298,8 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
               currency: _currency,
               amountMinor: amountMinor,
               categoryId: category.id,
+              subcategoryId: _subcategory?.id,
+              debtOperation: _isDebtEntry ? _debtOperation : null,
               transactionDate: _date,
               description: description.isEmpty ? null : description,
               rates: rates,
@@ -238,7 +311,9 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
       Navigator.of(context).pop();
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${_type.label} kaydedildi.'),
+          content: Text(
+            _isDebtEntry ? '${_debtOperation.label} kaydedildi.' : '${_type.label} kaydedildi.',
+          ),
           backgroundColor: AppColors.accentFor(_type),
         ),
       );

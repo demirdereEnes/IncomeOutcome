@@ -4,7 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/app_typography.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
-import '../features/transactions/presentation/transactions_screen.dart';
+import '../features/movements/presentation/movements_screen.dart';
 import 'app_router.dart';
 
 /// Bottom navigation shell: Özet | (+) | Hareketler.
@@ -31,7 +31,7 @@ class _HomeShellState extends State<HomeShell> {
             onSeeAllTransactions: () => _select(1),
             onAddTransaction: _openNewTransaction,
           ),
-          TransactionsScreen(onAddTransaction: _openNewTransaction),
+          MovementsScreen(onAddTransaction: _openNewTransaction),
         ],
       ),
       floatingActionButton: FloatingActionButton(

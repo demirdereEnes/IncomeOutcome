@@ -1,4 +1,5 @@
 import '../../../shared/models/currency.dart';
+import '../../../shared/models/debt_operation.dart';
 import '../../../shared/models/transaction_type.dart';
 import '../../rates/domain/currency_conversion_service.dart';
 import '../../rates/domain/exchange_rates.dart';
@@ -18,6 +19,8 @@ class Transaction {
     required this.transactionDate,
     required this.createdAt,
     required this.updatedAt,
+    this.subcategoryId,
+    this.debtOperation,
     this.description,
     this.rates,
     this.rateSnapshotAt,
@@ -31,6 +34,14 @@ class Transaction {
   final int amountMinor;
 
   final int categoryId;
+
+  /// Null for entries created before Sprint 3, and for types without a
+  /// subcategory level.
+  final int? subcategoryId;
+
+  /// Set when the entry moves debt rather than money out of the household.
+  final DebtOperation? debtOperation;
+
   final DateTime transactionDate;
   final String? description;
 
@@ -46,6 +57,13 @@ class Transaction {
 
   double get amount => amountMinor / 100;
 
+  bool get isDebtMovement => debtOperation != null;
+
+  /// Debt movements are money re-arrangement, not consumption, so they never
+  /// reach Total Expense.
+  bool get countsAsSpending =>
+      type == TransactionType.expense && debtOperation == null;
+
   /// Historical TRY value of this entry. Null when no snapshot was stored.
   double? get tryAmountSnapshot =>
       CurrencyConversionService.historicalTryAmount(this);
@@ -58,6 +76,8 @@ class Transaction {
     Currency? currency,
     int? amountMinor,
     int? categoryId,
+    Object? subcategoryId = _unset,
+    Object? debtOperation = _unset,
     DateTime? transactionDate,
     Object? description = _unset,
     DateTime? updatedAt,
@@ -68,6 +88,12 @@ class Transaction {
       currency: currency ?? this.currency,
       amountMinor: amountMinor ?? this.amountMinor,
       categoryId: categoryId ?? this.categoryId,
+      subcategoryId: identical(subcategoryId, _unset)
+          ? this.subcategoryId
+          : subcategoryId as int?,
+      debtOperation: identical(debtOperation, _unset)
+          ? this.debtOperation
+          : debtOperation as DebtOperation?,
       transactionDate: transactionDate ?? this.transactionDate,
       description: identical(description, _unset)
           ? this.description
@@ -90,6 +116,8 @@ class NewTransaction {
     required this.amountMinor,
     required this.categoryId,
     required this.transactionDate,
+    this.subcategoryId,
+    this.debtOperation,
     this.description,
     this.rates,
   });
@@ -98,6 +126,8 @@ class NewTransaction {
   final Currency currency;
   final int amountMinor;
   final int categoryId;
+  final int? subcategoryId;
+  final DebtOperation? debtOperation;
   final DateTime transactionDate;
   final String? description;
   final ExchangeRates? rates;

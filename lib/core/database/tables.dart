@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../shared/models/currency.dart';
+import '../../shared/models/debt_operation.dart';
 import '../../shared/models/transaction_type.dart';
 
 @DataClassName('TransactionRow')
@@ -16,6 +17,13 @@ class Transactions extends Table {
   IntColumn get amountMinor => integer()();
 
   IntColumn get categoryId => integer()();
+
+  /// Added in schema v3; null for rows created before subcategories existed.
+  IntColumn get subcategoryId => integer().nullable()();
+
+  /// Added in schema v3. Non-null rows are debt movements, not spending.
+  TextColumn get debtOperation => textEnum<DebtOperation>().nullable()();
+
   DateTimeColumn get transactionDate => dateTime()();
   TextColumn get description => text().nullable()();
 
@@ -39,6 +47,19 @@ class ExchangeRateCache extends Table {
   RealColumn get usdTryRate => real()();
   RealColumn get eurTryRate => real()();
   RealColumn get xauTryRate => real()();
+
+  /// When the app successfully retrieved the response.
   DateTimeColumn get fetchedAt => dateTime()();
+
+  /// Quote time reported by the provider. Added in v3; null when the provider
+  /// exposes no trustworthy source timestamp.
+  DateTimeColumn get sourceUpdatedAt => dateTime().nullable()();
+
+  /// When the row was persisted locally. Added in v3.
+  DateTimeColumn get cachedAt => dateTime().nullable()();
+
+  /// Base currency of the upstream response. Added in v3.
+  TextColumn get baseCurrency => text().nullable().withLength(max: 8)();
+
   TextColumn get source => text().withLength(max: 40)();
 }

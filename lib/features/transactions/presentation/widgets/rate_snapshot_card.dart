@@ -6,18 +6,24 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../rates/domain/exchange_rates.dart';
 
-/// Shows the rates that will be frozen onto the new entry, so it is obvious
-/// that its historical value never changes afterwards.
+/// Current rates plus the timestamp they actually belong to.
+///
+/// "Son güncelleme" is the moment the app last received a validated response;
+/// opening the app, the screen or rebuilding this widget never changes it.
 class RateSnapshotCard extends StatelessWidget {
   const RateSnapshotCard({
     super.key,
     required this.rates,
+    required this.onRefresh,
     this.isLoading = false,
+    this.isRefreshing = false,
     this.refreshFailed = false,
   });
 
   final ExchangeRates? rates;
+  final VoidCallback onRefresh;
   final bool isLoading;
+  final bool isRefreshing;
   final bool refreshFailed;
 
   @override
@@ -34,11 +40,9 @@ class RateSnapshotCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Kayıt Anındaki Kurlar',
+            'Güncel Kurlar',
             style: AppTypography.label.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(_subtitle(rates), style: AppTypography.caption),
           if (rates != null) ...[
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -66,13 +70,30 @@ class RateSnapshotCard extends StatelessWidget {
               ],
             ),
           ],
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _timestampLabel(rates),
+                  style: AppTypography.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _RefreshButton(
+                isBusy: isRefreshing,
+                onPressed: isRefreshing ? null : onRefresh,
+              ),
+            ],
+          ),
           if (refreshFailed) ...[
             const SizedBox(height: AppSpacing.md),
             _Notice(
-              icon: Icons.cloud_off_rounded,
               message: rates == null
-                  ? 'Kurlar alınamadı. Sadece TL işlem kaydedebilirsin.'
-                  : 'Kurlar güncellenemedi. Son kullanılan kurlar kullanılıyor.',
+                  ? 'Kur alınamadı. Şimdilik sadece TL işlem kaydedebilirsin.'
+                  : 'Kur güncellenemedi. Son kayıtlı kur kullanılıyor.',
             ),
           ],
         ],
@@ -80,10 +101,48 @@ class RateSnapshotCard extends StatelessWidget {
     );
   }
 
-  String _subtitle(ExchangeRates? rates) {
-    if (isLoading) return 'Kurlar alınıyor...';
+  String _timestampLabel(ExchangeRates? rates) {
+    if (isLoading && rates == null) return 'Kurlar alınıyor...';
     if (rates == null) return 'Kur bilgisi bulunamadı';
-    return '${Formatters.fullDate(rates.fetchedAt)} · ${Formatters.time(rates.fetchedAt)}';
+    return 'Son güncelleme: ${Formatters.time(rates.fetchedAt)}';
+  }
+}
+
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton({required this.isBusy, required this.onPressed});
+
+  final bool isBusy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: isBusy
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
+          : const Icon(Icons.refresh_rounded, size: 18),
+      label: Text(isBusy ? 'Güncelleniyor...' : 'Güncelle'),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        backgroundColor: AppColors.surface,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+      ),
+    );
   }
 }
 
@@ -122,9 +181,8 @@ class _RateTile extends StatelessWidget {
 }
 
 class _Notice extends StatelessWidget {
-  const _Notice({required this.icon, required this.message});
+  const _Notice({required this.message});
 
-  final IconData icon;
   final String message;
 
   @override
@@ -132,7 +190,7 @@ class _Notice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppColors.warning),
+        const Icon(Icons.cloud_off_rounded, size: 16, color: AppColors.warning),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(

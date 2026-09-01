@@ -4,45 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:income_outcome/app/app.dart';
 import 'package:income_outcome/features/rates/application/rates_providers.dart';
 import 'package:income_outcome/features/rates/data/exchange_rate_repository.dart';
-import 'package:income_outcome/features/rates/domain/exchange_rates.dart';
 import 'package:income_outcome/features/transactions/application/transactions_providers.dart';
 import 'package:income_outcome/features/transactions/domain/transaction.dart';
 import 'package:income_outcome/shared/models/currency.dart';
+import 'package:income_outcome/shared/models/debt_operation.dart';
 import 'package:income_outcome/shared/models/transaction_type.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
-final _rates = ExchangeRates(
-  usdTry: 41.2536,
-  eurTry: 48.1120,
-  xauTry: 5842.30,
-  fetchedAt: DateTime(2026, 8, 29, 9, 30),
-  source: 'test',
-);
+import 'support/test_data.dart';
 
-Transaction _tx({
-  required int id,
-  required TransactionType type,
-  required Currency currency,
-  required double amount,
-}) {
-  final when = DateTime(2026, 8, 29 - id);
-  return Transaction(
-    id: id,
-    type: type,
-    currency: currency,
-    amountMinor: (amount * 100).round(),
-    categoryId: switch (type) {
-      TransactionType.income => 1,
-      TransactionType.expense => 7,
-      TransactionType.saving => 16,
-    },
-    transactionDate: when,
-    rates: _rates,
-    rateSnapshotAt: _rates.fetchedAt,
-    createdAt: when,
-    updatedAt: when,
-  );
+class _FakeRatesNotifier extends CurrentRatesNotifier {
+  @override
+  Future<RatesLoadResult> build() async => RatesLoadResult(rates: testRates);
 }
 
 void main() {
@@ -51,10 +25,11 @@ void main() {
     await initializeDateFormatting('tr_TR');
   });
 
+  setUp(resetTestIds);
+
   Future<void> pumpApp(WidgetTester tester, List<Transaction> transactions) {
-    // Tall surface so the whole dashboard, including the movement list,
-    // is laid out and reachable by the finders.
-    tester.view.physicalSize = const Size(500, 2400);
+    // Tall surface so the whole dashboard is laid out for the finders.
+    tester.view.physicalSize = const Size(500, 3200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -63,52 +38,78 @@ void main() {
         overrides: [
           appBootstrapProvider.overrideWith((ref) async {}),
           transactionsProvider.overrideWith((ref) => Stream.value(transactions)),
-          currentRatesProvider.overrideWith(
-            (ref) async => RatesLoadResult(rates: _rates),
-          ),
+          currentRatesProvider.overrideWith(_FakeRatesNotifier.new),
         ],
         child: const IncomeOutcomeApp(),
       ),
     );
   }
 
-  testWidgets('dashboard renders totals, movements and the currency filter', (
+  testWidgets('dashboard leads with net worth and keeps the summary cards', (
     tester,
   ) async {
     await pumpApp(tester, [
-      _tx(
-        id: 1,
-        type: TransactionType.income,
-        currency: Currency.tryLira,
-        amount: 125000,
-      ),
-      _tx(
-        id: 2,
+      tx(type: TransactionType.income, amount: 500000, categoryId: 100),
+      tx(type: TransactionType.expense, amount: 350000, categoryId: 113),
+      tx(type: TransactionType.saving, amount: 100000, categoryId: 133),
+      tx(
         type: TransactionType.expense,
-        currency: Currency.usd,
-        amount: 60,
-      ),
-      _tx(
-        id: 3,
-        type: TransactionType.saving,
-        currency: Currency.xau,
-        amount: 5,
+        amount: 60000,
+        categoryId: 118,
+        subcategoryId: 11804,
+        debtOperation: DebtOperation.add,
       ),
     ]);
     await tester.pumpAndSettle();
 
-    expect(find.text('TL'), findsOneWidget);
-    expect(find.text('XAU'), findsOneWidget);
+    expect(find.text('NET VARLIK'), findsOneWidget);
+    expect(find.text('₺190.000,00'), findsOneWidget);
     expect(find.text('Toplam Gelir'), findsOneWidget);
-    expect(find.text('Bu Ay Gider'), findsOneWidget);
+    expect(find.text('Toplam Gider'), findsOneWidget);
+    expect(find.text('Net Birikim'), findsOneWidget);
+    expect(find.text('Toplam Varlık'), findsOneWidget);
 
-    // Original currency headline plus the TRY equivalent from the snapshot.
+    // The debt movement must not inflate Total Expense.
+    expect(find.text('₺350.000,00'), findsOneWidget);
+    // Varlık / Toplam Varlık both render the same figure.
+    expect(find.text('₺250.000,00'), findsNWidgets(2));
+  });
+
+  testWidgets('negative net savings is shown, not clamped', (tester) async {
+    await pumpApp(tester, [
+      tx(type: TransactionType.income, amount: 100000, categoryId: 100),
+      tx(type: TransactionType.expense, amount: 125000, categoryId: 113),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('-₺25.000,00'), findsWidgets);
+  });
+
+  testWidgets('movement rows keep the original currency and historical TRY', (
+    tester,
+  ) async {
+    await pumpApp(tester, [
+      tx(type: TransactionType.income, amount: 125000, categoryId: 100),
+      tx(
+        type: TransactionType.expense,
+        currency: Currency.usd,
+        amount: 60,
+        categoryId: 112,
+        subcategoryId: 11200,
+      ),
+      tx(
+        type: TransactionType.saving,
+        currency: Currency.xau,
+        amount: 5,
+        categoryId: 130,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
     expect(find.text(r'- $60,00'), findsOneWidget);
     expect(find.text('≈ ₺2.475,22'), findsOneWidget);
     expect(find.text('+ 5,00 gr'), findsOneWidget);
     expect(find.text('≈ ₺29.211,50'), findsOneWidget);
-
-    // A TRY entry shows no redundant conversion line.
     expect(find.text('+ ₺125.000,00'), findsOneWidget);
   });
 
@@ -120,7 +121,7 @@ void main() {
     expect(find.text('İlk İşlemini Ekle'), findsOneWidget);
   });
 
-  testWidgets('the new transaction form offers all types and currencies', (
+  testWidgets('the entry form offers all types, currencies and a refresh', (
     tester,
   ) async {
     await pumpApp(tester, const []);
@@ -134,10 +135,64 @@ void main() {
     expect(find.text('Gider'), findsOneWidget);
     expect(find.text('Birikim'), findsOneWidget);
     expect(find.text('TRY'), findsOneWidget);
-    // USD / EUR / XAU also appear in the rate snapshot card below the form.
     expect(find.text('USD'), findsWidgets);
     expect(find.text('EUR'), findsWidgets);
     expect(find.text('XAU'), findsWidgets);
+    expect(find.text('Güncelle'), findsOneWidget);
     expect(find.text('Kaydet'), findsOneWidget);
+
+    // The timestamp belongs to the rate data, not to "now".
+    expect(find.text('Son güncelleme: 09:30'), findsOneWidget);
+  });
+
+  testWidgets('rebuilding the rate card never moves the timestamp', (
+    tester,
+  ) async {
+    await pumpApp(tester, const []);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Son güncelleme: 09:30'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Son güncelleme: 09:30'), findsOneWidget);
+  });
+
+  testWidgets('movements screen exposes period, type and donut analytics', (
+    tester,
+  ) async {
+    await pumpApp(tester, [
+      tx(
+        type: TransactionType.expense,
+        amount: 3500,
+        categoryId: 112,
+        subcategoryId: 11200,
+        date: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+      tx(
+        type: TransactionType.expense,
+        amount: 1500,
+        categoryId: 113,
+        subcategoryId: 11300,
+        date: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Hareketler').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 AY'), findsOneWidget);
+    expect(find.text('3 AY'), findsOneWidget);
+    expect(find.text('6 AY'), findsOneWidget);
+    expect(find.text('TÜMÜ'), findsOneWidget);
+    expect(find.text('Kategori Dağılımı'), findsOneWidget);
+    expect(find.text('Araç'), findsWidgets);
+    expect(find.text('Market & Gıda'), findsWidgets);
   });
 }

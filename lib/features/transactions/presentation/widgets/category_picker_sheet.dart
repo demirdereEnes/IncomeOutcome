@@ -5,7 +5,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_widgets.dart';
 import '../../../categories/domain/category.dart';
-import '../../../categories/domain/default_categories.dart';
+import '../../../categories/domain/category_catalog.dart';
 
 Future<Category?> showCategoryPicker(
   BuildContext context, {
@@ -15,18 +15,52 @@ Future<Category?> showCategoryPicker(
   return showModalBottomSheet<Category>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _CategoryPickerSheet(
-      categories: categories,
-      selected: selected,
+    builder: (context) => _PickerSheet<Category>(
+      title: 'Kategori Seç',
+      items: categories,
+      selectedId: selected?.id,
+      idOf: (category) => category.id,
+      labelOf: (category) => category.name,
+      iconOf: (category) => categoryIcon(category.iconKey),
     ),
   );
 }
 
-class _CategoryPickerSheet extends StatelessWidget {
-  const _CategoryPickerSheet({required this.categories, this.selected});
+Future<Subcategory?> showSubcategoryPicker(
+  BuildContext context, {
+  required Category category,
+  Subcategory? selected,
+}) {
+  return showModalBottomSheet<Subcategory>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _PickerSheet<Subcategory>(
+      title: '${category.name} · Alt Kategori',
+      items: category.subcategories,
+      selectedId: selected?.id,
+      idOf: (subcategory) => subcategory.id,
+      labelOf: (subcategory) => subcategory.name,
+      iconOf: (_) => categoryIcon(category.iconKey),
+    ),
+  );
+}
 
-  final List<Category> categories;
-  final Category? selected;
+class _PickerSheet<T> extends StatelessWidget {
+  const _PickerSheet({
+    required this.title,
+    required this.items,
+    required this.selectedId,
+    required this.idOf,
+    required this.labelOf,
+    required this.iconOf,
+  });
+
+  final String title;
+  final List<T> items;
+  final int? selectedId;
+  final int Function(T) idOf;
+  final String Function(T) labelOf;
+  final IconData Function(T) iconOf;
 
   @override
   Widget build(BuildContext context) {
@@ -39,23 +73,23 @@ class _CategoryPickerSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
                 AppSpacing.page,
                 0,
                 AppSpacing.page,
                 AppSpacing.sm,
               ),
-              child: Text('Kategori Seç', style: AppTypography.sectionTitle),
+              child: Text(title, style: AppTypography.sectionTitle),
             ),
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                itemCount: categories.length,
+                itemCount: items.length,
                 itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final isSelected = category.id == selected?.id;
+                  final item = items[index];
+                  final isSelected = idOf(item) == selectedId;
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
@@ -63,7 +97,7 @@ class _CategoryPickerSheet extends StatelessWidget {
                       vertical: AppSpacing.xs,
                     ),
                     leading: SoftIcon(
-                      icon: categoryIcon(category.iconKey),
+                      icon: iconOf(item),
                       color: isSelected
                           ? AppColors.primary
                           : AppColors.textSecondary,
@@ -72,7 +106,7 @@ class _CategoryPickerSheet extends StatelessWidget {
                           : AppColors.surfaceMuted,
                     ),
                     title: Text(
-                      category.name,
+                      labelOf(item),
                       style: AppTypography.body.copyWith(
                         fontWeight: isSelected
                             ? FontWeight.w600
@@ -85,7 +119,7 @@ class _CategoryPickerSheet extends StatelessWidget {
                             color: AppColors.primary,
                           )
                         : null,
-                    onTap: () => Navigator.of(context).pop(category),
+                    onTap: () => Navigator.of(context).pop(item),
                   );
                 },
               ),

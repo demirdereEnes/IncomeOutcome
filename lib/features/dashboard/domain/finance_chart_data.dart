@@ -67,7 +67,8 @@ class FinanceChartData {
         case TransactionType.income:
           totals.income += amount;
         case TransactionType.expense:
-          totals.expense += amount;
+          // Debt movements are not consumption, so they stay off the line.
+          if (transaction.countsAsSpending) totals.expense += amount;
         case TransactionType.saving:
           totals.saving += amount;
       }

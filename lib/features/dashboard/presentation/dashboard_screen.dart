@@ -3,15 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/models/currency.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_widgets.dart';
 import '../../../shared/widgets/currency_segmented_control.dart';
 import '../../../shared/widgets/transaction_list_item.dart';
 import '../../categories/application/categories_providers.dart';
+import '../../finance/application/financial_providers.dart';
+import '../../rates/application/rates_providers.dart';
 import '../../transactions/application/transactions_providers.dart';
 import '../application/dashboard_providers.dart';
 import 'widgets/finance_summary_card.dart';
+import 'widgets/net_worth_card.dart';
 import 'widgets/trend_card.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -60,7 +65,7 @@ class _DashboardContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currency = ref.watch(selectedCurrencyProvider);
-    final summary = ref.watch(dashboardProvider);
+    final summary = ref.watch(financialSummaryProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -78,11 +83,7 @@ class _DashboardContent extends ConsumerWidget {
         if (summary.isEmpty)
           _DashboardEmptyState(onAddTransaction: onAddTransaction)
         else ...[
-          TrendCard(
-            data: ref.watch(chartDataProvider),
-            currency: currency,
-            transactionCount: summary.transactionCount,
-          ),
+          NetWorthCard(summary: summary),
           const SizedBox(height: AppSpacing.md),
           SummaryCardRow(
             left: FinanceSummaryCard(
@@ -104,10 +105,32 @@ class _DashboardContent extends ConsumerWidget {
           SummaryCardRow(
             left: FinanceSummaryCard(
               icon: Icons.savings_outlined,
+              iconColor: summary.netSavings < 0
+                  ? AppColors.negative
+                  : AppColors.positive,
+              iconBackground: summary.netSavings < 0
+                  ? AppColors.negativeSoft
+                  : AppColors.positiveSoft,
+              label: 'Net Birikim',
+              value: Formatters.money(summary.netSavings, currency),
+              caption: 'Gelir - Gider',
+            ),
+            right: FinanceSummaryCard(
+              icon: Icons.account_balance_wallet_outlined,
               iconColor: AppColors.saving,
               iconBackground: AppColors.savingSoft,
-              label: 'Birikim',
-              value: Formatters.money(summary.totalSaving, currency),
+              label: 'Toplam Varlık',
+              value: Formatters.money(summary.totalAssets, currency),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SummaryCardRow(
+            left: FinanceSummaryCard(
+              icon: Icons.workspace_premium_outlined,
+              iconColor: AppColors.saving,
+              iconBackground: AppColors.savingSoft,
+              label: 'Manuel Birikim',
+              value: Formatters.money(summary.manualAssets, currency),
             ),
             right: FinanceSummaryCard(
               icon: Icons.calendar_today_outlined,
@@ -117,6 +140,16 @@ class _DashboardContent extends ConsumerWidget {
               value: Formatters.money(summary.currentMonthExpense, currency),
             ),
           ),
+          if (summary.totalDebt > 0) ...[
+            const SizedBox(height: AppSpacing.md),
+            const _DebtSummaryCard(),
+          ],
+          const SizedBox(height: AppSpacing.xxl),
+          TrendCard(
+            data: ref.watch(chartDataProvider),
+            currency: currency,
+            transactionCount: summary.transactionCount,
+          ),
           const SizedBox(height: AppSpacing.xxl),
           SectionHeader(
             title: 'Hareketler',
@@ -125,6 +158,101 @@ class _DashboardContent extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           const _RecentTransactions(),
+        ],
+      ],
+    );
+  }
+}
+
+class _DebtSummaryCard extends ConsumerWidget {
+  const _DebtSummaryCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final debts = ref.watch(activeDebtsProvider);
+    final currency = ref.watch(selectedCurrencyProvider);
+    if (debts.isEmpty) return const SizedBox.shrink();
+
+    // Debt is valued with today's rate, never a historical snapshot.
+    final rates = ref.watch(currentExchangeRatesProvider);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Borçlar'),
+          const SizedBox(height: AppSpacing.sm),
+          for (var i = 0; i < debts.length; i++) ...[
+            if (i > 0) const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Row(
+                children: [
+                  const SoftIcon(
+                    icon: Icons.credit_card_outlined,
+                    color: AppColors.negative,
+                    background: AppColors.negativeSoft,
+                    size: 34,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      debts[i].name,
+                      style: AppTypography.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  _DebtAmount(
+                    original: Formatters.money(
+                      debts[i].remainingAmount,
+                      debts[i].currency,
+                    ),
+                    converted: debts[i].currency == currency
+                        ? null
+                        : debts[i].currentValueIn(currency, rates),
+                    currency: currency,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtAmount extends StatelessWidget {
+  const _DebtAmount({
+    required this.original,
+    required this.converted,
+    required this.currency,
+  });
+
+  final String original;
+  final double? converted;
+  final Currency currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final converted = this.converted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          original,
+          style: AppTypography.amountMedium.copyWith(
+            color: AppColors.negative,
+          ),
+        ),
+        if (converted != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            Formatters.approx(converted, currency),
+            style: AppTypography.caption,
+          ),
         ],
       ],
     );

@@ -49,6 +49,8 @@ class TransactionRepository {
       currency: transaction.currency,
       amountMinor: transaction.amountMinor,
       categoryId: transaction.categoryId,
+      subcategoryId: Value(transaction.subcategoryId),
+      debtOperation: Value(transaction.debtOperation),
       transactionDate: transaction.transactionDate,
       description: Value(transaction.description),
       usdTryRate: Value(rates?.usdTry),
@@ -75,6 +77,8 @@ class TransactionRepository {
       currency: row.currency,
       amountMinor: row.amountMinor,
       categoryId: row.categoryId,
+      subcategoryId: row.subcategoryId,
+      debtOperation: row.debtOperation,
       transactionDate: row.transactionDate,
       description: row.description,
       rates: hasSnapshot

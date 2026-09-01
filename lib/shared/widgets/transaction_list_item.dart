@@ -5,7 +5,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/formatters.dart';
 import '../../features/categories/domain/category.dart';
-import '../../features/categories/domain/default_categories.dart';
+import '../../features/categories/domain/category_catalog.dart';
 import '../../features/transactions/domain/transaction.dart';
 import '../models/currency.dart';
 import 'app_widgets.dart';
